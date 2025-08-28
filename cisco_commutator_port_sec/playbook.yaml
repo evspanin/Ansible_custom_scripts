@@ -1,0 +1,17 @@
+---
+- name: Configure Port Security on Cisco Switches
+  hosts: switches
+  gather_facts: no
+  
+  vars_prompt:
+    - name: ssh_username
+      prompt: "Enter SSH username"
+      private: no
+
+    - name: ssh_password
+      prompt: "Enter SSH password"
+      private: yes
+
+  tasks:
+    - name: Include main tasks
+      include_tasks: tasks/get_ports.yml

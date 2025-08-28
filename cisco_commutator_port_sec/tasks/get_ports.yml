@@ -1,0 +1,116 @@
+---
+- name: Get list of all interfaces
+  ios_command:
+    commands:
+      - show ip interface brief
+  register: interfaces_name
+
+- name: Get name FastEthernet
+  set_fact:
+    fa_interfaces: "{{ interfaces_name.stdout[0].split('\n') | select('search', '^FastEthernet[0-9/]+') | map('regex_search', '^FastEthernet[0-9/]+') | list }}"
+
+- name: Get running-config
+  ios_command:
+    commands:
+      - "show running-config interface {{ item }}"
+  loop: "{{ fa_interfaces }}"
+  register: interface_config
+
+- name: Filter interfaces by VLAN and mode conditions for port security enabled
+  set_fact:
+    enabled_interfaces: "{{ enabled_interfaces | default([]) + [item.item] }}"
+  when:
+    - item.stdout | select('search', 'switchport access vlan (57|10|15)') | list | length > 0
+  loop: "{{ interface_config.results }}"
+  no_log: true
+
+- name: Filter interfaces by VLAN and mode conditions for port security disabled
+  set_fact:
+    disabled_interfaces: "{{ disabled_interfaces | default([]) + [item.item] }}"
+  when:
+    - item.stdout | select('search', 'switchport access vlan (57|10|15)') | list | length == 0
+  loop: "{{ interface_config.results }}"
+  no_log: true
+
+- name: Get MAC addresses for each VLAN interface when enabled port-security
+  ios_command:
+    commands:
+      - "show mac address-table interface {{ item }}"
+  loop: "{{ enabled_interfaces }}"
+  register: mac_address_enabled_interfaces
+  when: enabled_interfaces is defined and enabled_interfaces != ""
+
+- name: Get MAC addresses for each VLAN interface when disabled port-security
+  ios_command:
+    commands:
+      - "show mac address-table interface {{ item }}"
+  loop: "{{ disabled_interfaces }}"
+  register: mac_address_disabled_interfaces
+  when: disabled_interfaces is defined and disabled_interfaces != ""
+
+- name: Compile MAC address table enabled port-security
+  set_fact:
+    interfaces_with_macs_enabled: "{{ interfaces_with_macs_enabled | default({}) | combine({ item.item: { 'mac_count': mac_addresses | length, 'mac_addresses': mac_addresses } }) }}"
+  vars: 
+    mac_addresses: "{{ item.stdout[0].split('\n') | select('match', '^\\s*\\d+\\s+[0-9a-fA-F]{4}\\.[0-9a-fA-F]{4}\\.[0-9a-fA-f]{4}\\s+\\w+') | map('regex_search', '[0-9a-fA-f]{4}\\.[0-9a-fA-f]{4}\\.[0-9a-fA-F]{4}') | list }}"
+  loop: "{{ mac_address_enabled_interfaces.results }}"
+  when:
+    - mac_address_enabled_interfaces is defined
+    - mac_address_enabled_interfaces.results is defined
+    - mac_address_enabled_interfaces.results | length > 0
+
+- name: Compile MAC address table disabled port-security
+  set_fact:
+    interfaces_with_macs_disabled: "{{ interfaces_with_macs_disabled | default({}) | combine({ item.item: { 'mac_count': mac_addresses | length, 'mac_addresses': mac_addresses } }) }}"
+  vars:
+    mac_addresses: "{{ item.stdout[0].split('\n') | select('match', '^\\s*\\d+\\s+[0-9a-fA-F]{4}\\.[0-9a-fA-F]{4}\\.[0-9a-fA-f]{4}\\s+\\w+') | map('regex_search', '[0-9a-fA-f]{4}\\.[0-9a-fA-f]{4}\\.[0-9a-fA-F]{4}') | list }}"
+  loop: "{{ mac_address_disabled_interfaces.results }}"
+  no_log: true
+  when:
+    - mac_address_disabled_interfaces is defined
+    - mac_address_disabled_interfaces.results is defined
+    - mac_address_disabled_interfaces.results | length > 0
+
+- name: Setting port-security enabled interfaces with macs
+  ios_config:
+    lines:
+      - "switchport port-security"
+      - "switchport port-security maximum {{ interfaces_with_macs_enabled[item].mac_count }}"
+      - "switchport port-security mac-address sticky"
+      - "switchport port-security violation shutdown"
+    parents: "interface {{ item }}"
+  loop: "{{ interfaces_with_macs_enabled.keys() | list }}"
+  when: interfaces_with_macs_enabled[item].mac_count > 0 and interfaces_with_macs_enabled is defined
+
+- name: Setting port-security enabled interfaces no macs
+  ios_config: 
+    lines:
+      - "switchport port-security"
+      - "switchport port-security maximum 1"
+      - "switchport port-security mac-address sticky"
+      - "switchport port-security violation shutdown"
+      - "shutdown"
+    parents: "interface {{ item }}"
+  loop: "{{ interfaces_with_macs_enabled.keys() | list }}"
+  when: interfaces_with_macs_enabled[item].mac_count == 0 and interfaces_with_macs_enabled is defined
+
+- name: Setting port-security disabled interfaces
+  ios_config:
+    lines:
+      - "no switchport port-security"
+      - "switchport port-security maximum 32"
+      - "no switchport port-security mac-address sticky"
+      - "no switchport port-security violation shutdown"
+    parents: "interface {{ item }}"
+  loop: "{{ interfaces_with_macs_disabled.keys() | list }}"
+  when: interfaces_with_macs_disabled is defined and interfaces_with_macs_disabled != ""
+
+
+- name: Display interfaces with macs enabled port-security
+  debug:
+    var: interfaces_with_macs_enabled
+
+- name: Display interfaces with macs disabled port-security
+  debug:
+    var: interfaces_with_macs_disabled
+

@@ -1,0 +1,49 @@
+[switches_prom]
+swa1-KAES ansible_host=10.49.100.11
+swa2-KAES ansible_host=10.49.100.12
+swa3-KAES ansible_host=10.49.100.13
+swa4-KAES ansible_host=10.49.100.14
+swa5-KAES ansible_host=10.49.100.15
+swa6-KAES ansible_host=10.49.100.16
+swa7-KAES ansible_host=10.49.100.17
+swa8-KAES ansible_host=10.49.100.18
+swa9-KAES ansible_host=10.49.100.19
+swa10-KAES ansible_host=10.49.100.20
+swa11-KAES ansible_host=10.49.100.21
+swa12-KAES ansible_host=10.49.100.22
+swa13-KAES ansible_host=10.49.100.23
+swa15-KAES ansible_host=10.49.100.25
+swa16-KAES ansible_host=10.49.100.26
+swa17-KAES ansible_host=10.49.100.27
+swa22-KAES ansible_host=10.49.100.33
+swa23-KAES ansible_host=10.49.100.34
+swa32-KAES ansible_host=10.49.100.44
+swa34-KAES ansible_host=10.49.100.52
+swa35-KAES ansible_host=10.49.100.53
+swa36-KAES ansible_host=10.49.100.54
+swa37-KAES ansible_host=10.49.100.55
+swa38-KAES ansible_host=10.49.100.56
+swa40-KAES ansible_host=10.49.100.67
+swa42-KAES ansible_host=10.49.100.69
+swa45-KAES ansible_host=10.49.100.72
+swa46-KAES ansible_host=10.49.100.74
+swa49-KAES ansible_host=10.49.100.77
+swa52-KAES ansible_host=10.49.100.80
+swa53-KAES ansible_host=10.49.100.81
+swa56-KAES ansible_host=10.49.100.84
+
+[switches_molod]
+swa1-Kursk ansible_host=10.51.9.11
+swa2-Kursk ansible_host=10.51.9.12
+swa3-Kursk ansible_host=10.51.9.13
+swa4-Kursk ansible_host=10.51.9.14
+swa6-Kursk ansible_host=10.51.9.16
+swa7-Kursk ansible_host=10.51.9.17
+swa8-Kursk ansible_host=10.51.9.18
+swa9-Kursk ansible_host=10.51.9.19
+swa14-Kursk ansible_host=10.51.9.24
+
+
+[test_switches]
+swa3-Kursk ansible_host=10.51.9.13
+swa6-Kursk ansible_host=10.51.9.16
