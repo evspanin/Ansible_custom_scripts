@@ -1,0 +1,55 @@
+- name: Ensure /etc/apt/keyrings exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Setup Kubernetes repository
+  block:
+    - name: Download Kubernetes key
+      ansible.builtin.get_url:
+        url: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/Release.key"
+        dest: /etc/apt/keyrings/kubernetes-release.key
+        mode: '0644'
+
+    - name: Convert key to keyring
+      ansible.builtin.command:
+        cmd: "gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg /etc/apt/keyrings/kubernetes-release.key"
+        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+    - name: Remove temporary key
+      ansible.builtin.file:
+        path: /etc/apt/keyrings/kubernetes-release.key
+        state: absent
+
+    - name: Add Kubernetes repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/ /"
+        filename: kubernetes
+        state: present
+
+  rescue:
+    - name: Cleanup on failure
+      ansible.builtin.file:
+        path: /etc/apt/keyrings/kubernetes-release.key
+        state: absent
+      ignore_errors: true
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Install Kubernetes packages
+  ansible.builtin.apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+
+- name: Hold Kubernetes packages
+  ansible.builtin.apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: held

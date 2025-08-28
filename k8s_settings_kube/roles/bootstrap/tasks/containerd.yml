@@ -1,0 +1,85 @@
+- name: Download containerd components
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "/tmp/{{ item.name }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { url: "{{ containerd_url }}", name: "containerd-{{ containerd_version }}-linux-amd64.tar.gz", mode: '0755' }
+    - { url: "{{ runc_url }}", name: "runc.amd64", mode: '0755' }
+    - { url: "{{ cni_plugins_url }}", name: "cni-plugins-linux-amd64-v{{ cni_plugins_version }}.tgz", mode: '0644' }
+    - { url: "{{ nerdctl_url }}", name: "nerdctl-{{ nerdctl_version }}-linux-amd64.tar.gz", mode: '0644' }
+    - { url: "{{ buildkit_url }}", name: "buildkit-v{{ buildkit_version }}.linux-amd64.tar.gz", mode: '0644' }
+    - { url: "{{ containerd_service_url }}", name: "containerd.service", mode: '0644' }
+
+- name: Ensure directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/containerd
+    - /opt/cni/bin
+    - /usr/local/lib/systemd/system
+
+- name: Extract containerd
+  ansible.builtin.unarchive:
+    src: "/tmp/containerd-{{ containerd_version }}-linux-amd64.tar.gz"
+    dest: /usr/local/
+    remote_src: true
+
+- name: Generate default containerd config
+  ansible.builtin.command: /usr/local/bin/containerd config default
+  register: containerd_config
+  changed_when: false
+
+- name: Write containerd config
+  ansible.builtin.copy:
+    dest: /etc/containerd/config.toml
+    content: "{{ containerd_config.stdout }}"
+    mode: '0644'
+
+- name: Extract buildkit
+  ansible.builtin.unarchive:
+    src: "/tmp/buildkit-v{{ buildkit_version }}.linux-amd64.tar.gz"
+    dest: /usr/local/
+    remote_src: true
+
+- name: Install runc
+  ansible.builtin.copy:
+    src: /tmp/runc.amd64
+    dest: /usr/local/sbin/runc
+    mode: '0755'
+
+- name: Extract nerdctl
+  ansible.builtin.unarchive:
+    src: "/tmp/nerdctl-{{ nerdctl_version }}-linux-amd64.tar.gz"
+    dest: /usr/local/bin/
+    remote_src: true
+
+- name: Extract CNI plugins
+  ansible.builtin.unarchive:
+    src: "/tmp/cni-plugins-linux-amd64-v{{ cni_plugins_version }}.tgz"
+    dest: /opt/cni/bin
+    remote_src: true
+
+- name: Install containerd systemd service
+  ansible.builtin.copy:
+    src: /tmp/containerd.service
+    dest: /usr/local/lib/systemd/system/containerd.service
+    mode: '0644'
+
+- name: Create buildkitd service from containerd template
+  ansible.builtin.template:
+    src: buildkitd.service.j2
+    dest: /usr/local/lib/systemd/system/buildkitd.service
+    mode: '0644'
+  notify: reload systemd
+
+- name: Enable and start containerd services
+  ansible.builtin.service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - containerd
+    - buildkitd

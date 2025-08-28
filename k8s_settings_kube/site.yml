@@ -1,0 +1,5 @@
+- name: Bootstrap Kubernetes nodes
+  hosts: all
+  become: true
+  roles:
+    - bootstrap

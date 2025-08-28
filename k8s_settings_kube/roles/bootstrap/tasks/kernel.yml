@@ -1,0 +1,22 @@
+- name: Ensure kernel modules are loaded
+  ansible.builtin.shell: modprobe -v {{ kernel_modules | join(' ') }}
+  changed_when: false
+
+- name: Persist kernel modules
+  ansible.builtin.template:
+    src: kubernetes.conf.j2
+    dest: /etc/modules-load.d/kubernetes.conf
+    mode: '0644'
+
+- name: Write sysctl config for kubernetes
+  ansible.builtin.template:
+    src: sysctl.conf.j2
+    dest: /etc/sysctl.d/kubernetes.conf
+    mode: '0644'
+  notify: reload sysctl
+
+- name: Write /etc/hosts
+  ansible.builtin.template:
+    src: hosts.j2
+    dest: /etc/hosts
+    mode: '0644'

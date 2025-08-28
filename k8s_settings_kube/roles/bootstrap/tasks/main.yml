@@ -1,0 +1,7 @@
+- name: Include all bootstrap tasks
+  ansible.builtin.include_tasks: "{{ item }}"
+  loop:
+    - packages.yml
+    - kernel.yml
+    - containerd.yml
+    - kubernetes.yml
